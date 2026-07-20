@@ -182,14 +182,14 @@ export function DebriefApp() {
     <div className="min-h-full bg-background">
       <Header />
 
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
         {!result && !isProcessing && (
-          <div className="mb-10 text-center">
+          <div className="mb-5 text-center sm:mb-6">
             <h1 className="text-2xl font-semibold tracking-tight text-stone-900 sm:text-[1.75rem] sm:leading-snug">
               Finish the debrief before
               <br className="hidden sm:block" /> the next meeting
             </h1>
-            <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-stone-500">
+            <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-stone-500">
               Speak or type post-interview notes. Three specialised analysis stages create the
               decision pack — scorecard, quality flags, and draft messages for panel review.
             </p>

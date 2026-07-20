@@ -165,7 +165,7 @@ _Add screenshots here before publishing — suggested captures:_
   "transcript": "Post-interview debrief…",
   "step": "evidence" | "rubric" | "pack",
   "context": {
-    "candidateName": "Priya",
+    "candidateName": "Alex",
     "roleTitle": "Senior Product Manager",
     "stage": "Final",
     "rubric": ["Product strategy & prioritization", "…"]

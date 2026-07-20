@@ -9,10 +9,10 @@ const root = resolve(__dirname, "..");
 const baseUrl = process.env.BASE_URL ?? "http://localhost:3000";
 
 const SAMPLE_INPUT =
-  "Just finished with Priya for the senior PM role. Strong on roadmap prioritization — she walked through killing two features with usage data. Weak on metrics — when I asked about success criteria she stayed vague. Good energy, asked smart questions about our enterprise motion. Didn't go deep on stakeholder conflict. I'd lean yes but want one more conversation on analytics.";
+  "Just finished with Alex for the senior PM role. Strong on roadmap prioritization — they walked through killing two features with usage data. Weak on metrics — when I asked about success criteria they stayed vague. Good energy, asked smart questions about our enterprise motion. Didn't go deep on stakeholder conflict. I'd lean yes but want one more conversation on analytics.";
 
 const context = {
-  candidateName: "Priya",
+  candidateName: "Alex",
   roleTitle: "Senior Product Manager",
   stage: "Final",
   rubric: [
@@ -95,7 +95,7 @@ if (allFallback && demoMode) {
   if (packRes.data.recommendation !== "Focused follow-up required") {
     console.warn(`Expected "Focused follow-up required", got "${packRes.data.recommendation}"`);
   }
-  if (evidenceRes.data.candidateName !== "Priya") {
+  if (evidenceRes.data.candidateName !== "Alex") {
     process.exitCode = 1;
   }
 } else if (allFallback) {

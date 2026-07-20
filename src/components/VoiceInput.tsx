@@ -145,8 +145,8 @@ export function VoiceInput({
         </p>
       )}
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div>
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,3fr)_minmax(0,4.5fr)_minmax(0,2.5fr)]">
+        <div className="min-w-0">
           <label htmlFor="candidate-name" className="mb-1.5 block text-xs font-medium text-stone-500">
             Candidate name <span className="text-accent">*</span>
           </label>
@@ -161,10 +161,10 @@ export function VoiceInput({
             placeholder="e.g. Alex"
             aria-required="true"
             aria-invalid={nameInvalid}
-            className="w-full rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
+            className="w-full min-w-0 rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label htmlFor="role" className="mb-1.5 block text-xs font-medium text-stone-500">
             Role
           </label>
@@ -173,7 +173,7 @@ export function VoiceInput({
             value={roleTitle}
             onChange={(e) => onRoleChange(e.target.value)}
             disabled={disabled}
-            className="w-full rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
+            className="w-full min-w-0 rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
           >
             {ROLE_OPTIONS.map((role) => (
               <option key={role} value={role}>
@@ -182,7 +182,7 @@ export function VoiceInput({
             ))}
           </select>
         </div>
-        <div>
+        <div className="min-w-0 sm:max-w-none">
           <label htmlFor="stage" className="mb-1.5 block text-xs font-medium text-stone-500">
             Stage
           </label>
@@ -191,7 +191,7 @@ export function VoiceInput({
             value={stage}
             onChange={(e) => onStageChange(e.target.value as InterviewStage)}
             disabled={disabled}
-            className="w-full rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
+            className="w-full min-w-0 rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
           >
             {STAGE_OPTIONS.map((s) => (
               <option key={s} value={s}>
@@ -203,13 +203,14 @@ export function VoiceInput({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onTrySample}
             disabled={disabled}
-            className="text-sm text-accent hover:text-accent-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40 disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-accent/35 bg-surface px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:border-accent/50 hover:bg-accent-soft/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40 disabled:cursor-not-allowed disabled:opacity-40"
           >
+            <DocumentSparkleIcon />
             Try sample
           </button>
           <button
@@ -230,20 +231,28 @@ export function VoiceInput({
       <button
         type="button"
         onClick={onGenerate}
-        disabled={!canGenerate}
+        disabled={!canGenerate || isProcessing}
         aria-busy={isProcessing}
-        className={`mt-8 w-full rounded-xl px-5 py-3.5 text-[15px] font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40 ${
-          canGenerate
+        className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-[15px] font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40 ${
+          canGenerate && !isProcessing
             ? "bg-accent text-white shadow-sm hover:bg-accent-hover"
-            : "cursor-not-allowed bg-stone-200 text-stone-400"
+            : "cursor-not-allowed bg-stone-200 text-stone-500"
         }`}
       >
-        {isProcessing
-          ? "Generating…"
-          : isRegenerate
-            ? "Regenerate decision pack"
-            : "Generate debrief"}
+        {isProcessing ? (
+          <>
+            <ButtonSpinnerIcon />
+            Preparing decision pack…
+          </>
+        ) : isRegenerate ? (
+          "Regenerate decision pack"
+        ) : (
+          "Generate debrief"
+        )}
       </button>
+      <p className="mt-3 text-center text-xs leading-relaxed text-stone-500">
+        For human review only. No automated hiring decisions.
+      </p>
     </section>
   );
 }
@@ -261,6 +270,40 @@ function StopIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6" aria-hidden="true">
       <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function ButtonSpinnerIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-4 w-4 motion-safe:animate-spin-slow"
+      aria-hidden="true"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
+function DocumentSparkleIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-3.5 w-3.5 shrink-0"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M4 2a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7.414a1 1 0 0 0-.293-.707L9.293 2.293A1 1 0 0 0 8.586 2H4Zm2 4a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5H6Zm0 3a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5H6Z"
+        clipRule="evenodd"
+      />
+      <path d="M14.25 8.25a.5.5 0 0 1 .71 0l.29.29.29-.29a.5.5 0 1 1 .71.71l-.29.29.29.29a.5.5 0 1 1-.71.71l-.29-.29-.29.29a.5.5 0 1 1-.71-.71l.29-.29-.29-.29a.5.5 0 0 1 0-.71Z" />
     </svg>
   );
 }

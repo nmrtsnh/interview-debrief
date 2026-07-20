@@ -14,8 +14,8 @@ import {
 import { SAMPLE_INPUT } from "@/lib/constants";
 import type { DebriefContext } from "@/types/debrief";
 
-const priyaContext: DebriefContext = {
-  candidateName: "Priya",
+const sampleContext: DebriefContext = {
+  candidateName: "Alex",
   roleTitle: "Senior Product Manager",
   stage: "Final",
   rubric: [
@@ -29,14 +29,14 @@ const priyaContext: DebriefContext = {
 
 describe("candidate name handling", () => {
   it("normalizes and validates candidate names", () => {
-    assert.equal(normalizeCandidateName("  Priya  "), "Priya");
+    assert.equal(normalizeCandidateName("  Alex  "), "Alex");
     assert.equal(isValidCandidateName("   "), false);
     assert.equal(isValidCandidateName("Alex"), true);
   });
 
   it("uses entered candidate name instead of transcript extraction", () => {
     const evidence = runFallbackEvidence(SAMPLE_INPUT, {
-      ...priyaContext,
+      ...sampleContext,
       candidateName: "Jordan",
     });
     assert.equal(evidence.candidateName, "Jordan");
@@ -44,8 +44,8 @@ describe("candidate name handling", () => {
 
   it("builds a safe export filename", () => {
     assert.equal(
-      buildExportFilename("Priya", "Senior Product Manager"),
-      "interview-debrief-priya-senior-product-manager.md",
+      buildExportFilename("Alex", "Senior Product Manager"),
+      "interview-debrief-alex-senior-product-manager.md",
     );
     assert.equal(buildExportFilename("  ", "Role"), "interview-debrief-candidate-role.md");
   });
@@ -71,15 +71,15 @@ describe("evidence-backed ratings", () => {
   });
 });
 
-describe("Priya sample pipeline", () => {
-  it("produces focused follow-up for Priya sample", () => {
-    const evidence = runFallbackEvidence(SAMPLE_INPUT, priyaContext);
-    const rubric = runFallbackRubric(SAMPLE_INPUT, evidence, priyaContext);
-    const pack = runFallbackPack(SAMPLE_INPUT, evidence, rubric, priyaContext);
+describe("Alex sample pipeline", () => {
+  it("produces focused follow-up for Alex sample", () => {
+    const evidence = runFallbackEvidence(SAMPLE_INPUT, sampleContext);
+    const rubric = runFallbackRubric(SAMPLE_INPUT, evidence, sampleContext);
+    const pack = runFallbackPack(SAMPLE_INPUT, evidence, rubric, sampleContext);
     const result = { evidence, rubric, pack };
 
     assert.equal(pack.recommendation, "Focused follow-up required");
-    assert.equal(evidence.candidateName, "Priya");
+    assert.equal(evidence.candidateName, "Alex");
 
     const summary = buildDecisionSummary(result);
     assert.equal(summary.strongestSignal, "Roadmap prioritisation");
@@ -109,12 +109,12 @@ describe("protected characteristic exclusion", () => {
 
 describe("markdown export", () => {
   it("includes required sections", () => {
-    const evidence = runFallbackEvidence(SAMPLE_INPUT, priyaContext);
-    const rubric = runFallbackRubric(SAMPLE_INPUT, evidence, priyaContext);
-    const pack = runFallbackPack(SAMPLE_INPUT, evidence, rubric, priyaContext);
+    const evidence = runFallbackEvidence(SAMPLE_INPUT, sampleContext);
+    const rubric = runFallbackRubric(SAMPLE_INPUT, evidence, sampleContext);
+    const pack = runFallbackPack(SAMPLE_INPUT, evidence, rubric, sampleContext);
     const md = buildMarkdownExport(SAMPLE_INPUT, { evidence, rubric, pack }, "Senior Product Manager", "Final");
 
-    assert.match(md, /# Interview Debrief — Priya/);
+    assert.match(md, /# Interview Debrief — Alex/);
     assert.match(md, /Draft next step/);
     assert.match(md, /Competency scorecard/);
     assert.match(md, /For human review only/);
@@ -125,8 +125,8 @@ describe("markdown export", () => {
 
 describe("recommendation derivation", () => {
   it("returns insufficient evidence for explicit pass language", () => {
-    const evidence = runFallbackEvidence("I'd pass on this one.", priyaContext);
-    const rubric = runFallbackRubric("I'd pass on this one.", evidence, priyaContext);
+    const evidence = runFallbackEvidence("I'd pass on this one.", sampleContext);
+    const rubric = runFallbackRubric("I'd pass on this one.", evidence, sampleContext);
     assert.equal(deriveRecommendation("I'd pass on this one.", rubric), "Insufficient evidence");
   });
 });

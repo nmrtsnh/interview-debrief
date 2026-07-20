@@ -1,9 +1,9 @@
 import type { InterviewStage } from "@/types/debrief";
 
-export const SAMPLE_CANDIDATE_NAME = "Priya";
+export const SAMPLE_CANDIDATE_NAME = "Alex";
 
 export const SAMPLE_INPUT =
-  "Just finished with Priya for the senior PM role. Strong on roadmap prioritization — she walked through killing two features with usage data. Weak on metrics — when I asked about success criteria she stayed vague. Good energy, asked smart questions about our enterprise motion. Didn't go deep on stakeholder conflict. I'd lean yes but want one more conversation on analytics.";
+  "Just finished with Alex for the senior PM role. Strong on roadmap prioritization — they walked through killing two features with usage data. Weak on metrics — when I asked about success criteria they stayed vague. Good energy, asked smart questions about our enterprise motion. Didn't go deep on stakeholder conflict. I'd lean yes but want one more conversation on analytics.";
 
 export const DEFAULT_RUBRIC = [
   "Product strategy & prioritization",

@@ -13,7 +13,7 @@ No API key needed — the app runs in demo mode by default.
 "After an interview, hiring managers still manually write scorecards, panel debriefs, and Slack updates. InterviewDebrief turns one messy voice note into all of that — using three specialised analysis stages, not one chatbot."
 
 **Live demo (60s)**  
-1. Enter candidate name **Priya**, role **Senior Product Manager**, stage **Final**
+1. Enter candidate name **Alex**, role **Senior Product Manager**, stage **Final**
 2. Click **Try sample** (or speak a post-interview debrief)
 3. Click **Generate debrief**
 4. Point at the stepper: "Evidence extracts facts. Rubric scores competencies and flags vague feedback. Decision Pack produces the review-ready pack."
@@ -29,6 +29,6 @@ No API key needed — the app runs in demo mode by default.
 
 ## Tips
 
-- Use the **Priya sample** for the strongest demo output in demo mode.
+- Use the **Alex sample** for the strongest demo output in demo mode.
 - Emphasize that outputs are **draft next steps**, not final decisions.
 - Say **Built with Cursor**, not "Built with Cursor SDK" — the SDK is optional and off by default.
