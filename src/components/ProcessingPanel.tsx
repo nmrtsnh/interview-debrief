@@ -16,7 +16,7 @@ export function ProcessingPanel({ statuses, activeLabel }: ProcessingPanelProps)
         Preparing your decision pack
       </h2>
       <p className="mt-1.5 text-center text-sm text-stone-500">
-        Usually takes 30–60 seconds
+        Three specialised analysis stages create the decision pack
       </p>
       <AgentWorkflow statuses={statuses} activeLabel={activeLabel} />
     </section>

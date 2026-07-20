@@ -4,7 +4,7 @@ import type { AgentStatus } from "@/types/debrief";
 const AGENTS = [
   { id: "evidence", label: "Evidence" },
   { id: "rubric", label: "Rubric" },
-  { id: "pack", label: "Pack" },
+  { id: "pack", label: "Decision Pack" },
 ] as const;
 
 interface AgentWorkflowProps {

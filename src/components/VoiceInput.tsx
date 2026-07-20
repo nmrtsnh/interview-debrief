@@ -1,12 +1,15 @@
 "use client";
 
-import { ROLE_OPTIONS, SAMPLE_INPUT, STAGE_OPTIONS } from "@/lib/constants";
+import { STAGE_OPTIONS, ROLE_OPTIONS } from "@/lib/constants";
+import { isValidCandidateName } from "@/lib/filename";
 import type { InterviewStage } from "@/types/debrief";
 
 interface VoiceInputProps {
+  candidateName: string;
   transcript: string;
   roleTitle: string;
   stage: InterviewStage;
+  onCandidateNameChange: (value: string) => void;
   onTranscriptChange: (value: string) => void;
   onRoleChange: (value: string) => void;
   onStageChange: (value: InterviewStage) => void;
@@ -17,15 +20,19 @@ interface VoiceInputProps {
   onStartListening: () => void;
   onStopListening: () => void;
   onGenerate: () => void;
+  onTrySample: () => void;
   canGenerate: boolean;
   disabled?: boolean;
   compact?: boolean;
+  isRegenerate?: boolean;
 }
 
 export function VoiceInput({
+  candidateName,
   transcript,
   roleTitle,
   stage,
+  onCandidateNameChange,
   onTranscriptChange,
   onRoleChange,
   onStageChange,
@@ -36,18 +43,23 @@ export function VoiceInput({
   onStartListening,
   onStopListening,
   onGenerate,
+  onTrySample,
   canGenerate,
   disabled = false,
   compact = false,
+  isRegenerate = false,
 }: VoiceInputProps) {
   const micDisabled = disabled || !isSupported || isProcessing;
+  const nameInvalid = candidateName.length > 0 && !isValidCandidateName(candidateName);
 
   if (compact) {
     return (
       <section className="shadow-card rounded-2xl bg-surface px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-stone-800">{roleTitle}</p>
+            <p className="truncate text-sm font-medium text-stone-800">
+              {candidateName || "Candidate"} · {roleTitle}
+            </p>
             <p className="text-xs text-stone-500">
               {stage} interview · {transcript.length} characters
             </p>
@@ -55,7 +67,7 @@ export function VoiceInput({
           <button
             type="button"
             onClick={onGenerate}
-            className="text-sm font-medium text-accent hover:text-accent-hover"
+            className="text-sm font-medium text-accent hover:text-accent-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40"
           >
             Edit debrief
           </button>
@@ -67,7 +79,7 @@ export function VoiceInput({
   return (
     <section
       aria-labelledby="input-heading"
-      className="shadow-card rounded-2xl bg-surface p-8 sm:p-10"
+      className="shadow-card rounded-2xl bg-surface p-6 sm:p-8"
     >
       <h2 id="input-heading" className="sr-only">
         Interview debrief input
@@ -123,17 +135,36 @@ export function VoiceInput({
         disabled={disabled}
         rows={4}
         placeholder="What stood out? Any concerns? What didn't get covered?"
+        aria-required="true"
         className="w-full resize-y rounded-xl bg-stone-50/80 px-4 py-3.5 text-[15px] leading-relaxed text-stone-800 placeholder:text-stone-400 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
       />
 
       {speechError && (
         <p role="status" className="mt-2 text-xs text-stone-500">
-          {speechError}
+          {speechError} You can still type your debrief below.
         </p>
       )}
 
-      <div className="mt-5 flex flex-wrap gap-3">
-        <div className="min-w-[140px] flex-1">
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div>
+          <label htmlFor="candidate-name" className="mb-1.5 block text-xs font-medium text-stone-500">
+            Candidate name <span className="text-accent">*</span>
+          </label>
+          <input
+            id="candidate-name"
+            type="text"
+            value={candidateName}
+            onChange={(e) => onCandidateNameChange(e.target.value)}
+            disabled={disabled}
+            required
+            autoComplete="name"
+            placeholder="e.g. Alex"
+            aria-required="true"
+            aria-invalid={nameInvalid}
+            className="w-full rounded-xl bg-stone-50/80 px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 ring-1 ring-stone-200/80 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50"
+          />
+        </div>
+        <div>
           <label htmlFor="role" className="mb-1.5 block text-xs font-medium text-stone-500">
             Role
           </label>
@@ -151,7 +182,7 @@ export function VoiceInput({
             ))}
           </select>
         </div>
-        <div className="min-w-[120px]">
+        <div>
           <label htmlFor="stage" className="mb-1.5 block text-xs font-medium text-stone-500">
             Stage
           </label>
@@ -175,17 +206,20 @@ export function VoiceInput({
         <div className="flex gap-4">
           <button
             type="button"
-            onClick={() => onTranscriptChange(SAMPLE_INPUT)}
+            onClick={onTrySample}
             disabled={disabled}
-            className="text-sm text-accent hover:text-accent-hover disabled:opacity-40"
+            className="text-sm text-accent hover:text-accent-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40 disabled:opacity-40"
           >
             Try sample
           </button>
           <button
             type="button"
-            onClick={() => onTranscriptChange("")}
-            disabled={disabled || !transcript}
-            className="text-sm text-stone-500 hover:text-stone-700 disabled:opacity-40"
+            onClick={() => {
+              onTranscriptChange("");
+              onCandidateNameChange("");
+            }}
+            disabled={disabled || (!transcript && !candidateName)}
+            className="text-sm text-stone-500 hover:text-stone-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/40 disabled:opacity-40"
           >
             Clear
           </button>
@@ -204,7 +238,11 @@ export function VoiceInput({
             : "cursor-not-allowed bg-stone-200 text-stone-400"
         }`}
       >
-        {isProcessing ? "Generating…" : "Generate debrief"}
+        {isProcessing
+          ? "Generating…"
+          : isRegenerate
+            ? "Regenerate decision pack"
+            : "Generate debrief"}
       </button>
     </section>
   );

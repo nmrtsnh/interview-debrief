@@ -13,7 +13,15 @@ import { VoiceInput } from "@/components/VoiceInput";
 import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { runDebriefStep } from "@/lib/api";
-import { AGENT_DELAY_MS, DEFAULT_RUBRIC, ROLE_OPTIONS, delay } from "@/lib/constants";
+import {
+  AGENT_DELAY_MS,
+  DEFAULT_RUBRIC,
+  ROLE_OPTIONS,
+  SAMPLE_CANDIDATE_NAME,
+  SAMPLE_INPUT,
+  delay,
+} from "@/lib/constants";
+import { isValidCandidateName, normalizeCandidateName } from "@/lib/filename";
 import type {
   AgentStatus,
   DecisionPackOutput,
@@ -24,6 +32,7 @@ import type {
 } from "@/types/debrief";
 
 export function DebriefApp() {
+  const [candidateName, setCandidateName] = useState("");
   const [transcript, setTranscript] = useState("");
   const [roleTitle, setRoleTitle] = useState<string>(ROLE_OPTIONS[0]);
   const [stage, setStage] = useState<InterviewStage>("Final");
@@ -33,6 +42,7 @@ export function DebriefApp() {
   const [result, setResult] = useState<DebriefResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inputExpanded, setInputExpanded] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
   const processingRef = useRef(false);
 
   const { copiedKey, copy } = useCopyFeedback();
@@ -59,48 +69,67 @@ export function DebriefApp() {
   };
 
   const context = {
+    candidateName: normalizeCandidateName(candidateName),
     roleTitle,
     stage,
     rubric: [...DEFAULT_RUBRIC],
   };
 
+  const runPipeline = async (trimmedTranscript: string) => {
+    setActiveAgentLabel(AGENT_LABELS.evidence);
+    setAgentStatus("evidence", "working");
+    await delay(AGENT_DELAY_MS);
+    const evidenceRes = await runDebriefStep(trimmedTranscript, "evidence", context);
+    const evidence = evidenceRes.data as EvidenceOutput;
+    setAgentStatus("evidence", "complete");
+
+    setActiveAgentLabel(AGENT_LABELS.rubric);
+    setAgentStatus("rubric", "working");
+    await delay(AGENT_DELAY_MS);
+    const rubricRes = await runDebriefStep(trimmedTranscript, "rubric", context, {
+      evidence,
+    });
+    const rubric = rubricRes.data as RubricOutput;
+    setAgentStatus("rubric", "complete");
+
+    setActiveAgentLabel(AGENT_LABELS.pack);
+    setAgentStatus("pack", "working");
+    await delay(AGENT_DELAY_MS);
+    const packRes = await runDebriefStep(trimmedTranscript, "pack", context, {
+      evidence,
+      rubric,
+    });
+    const pack = packRes.data as DecisionPackOutput;
+    setAgentStatus("pack", "complete");
+    setActiveAgentLabel("");
+
+    setResult({ evidence, rubric, pack });
+    setIsEditing(false);
+    setInputExpanded(false);
+  };
+
   const handleGenerate = async () => {
-    const trimmed = transcript.trim();
-    if (!trimmed || isProcessing || processingRef.current) return;
+    const trimmedTranscript = transcript.trim();
+    const trimmedName = normalizeCandidateName(candidateName);
+    if (
+      !trimmedTranscript ||
+      !isValidCandidateName(trimmedName) ||
+      isProcessing ||
+      processingRef.current
+    ) {
+      return;
+    }
 
     processingRef.current = true;
     setIsProcessing(true);
     setError(null);
     setResult(null);
-    setInputExpanded(false);
     setAgentStatuses(INITIAL_AGENT_STATUSES);
 
     if (isListening) stopListening();
 
     try {
-      setActiveAgentLabel(AGENT_LABELS.evidence);
-      setAgentStatus("evidence", "working");
-      await delay(AGENT_DELAY_MS);
-      const evidenceRes = await runDebriefStep(trimmed, "evidence", context);
-      const evidence = evidenceRes.data as EvidenceOutput;
-      setAgentStatus("evidence", "complete");
-
-      setActiveAgentLabel(AGENT_LABELS.rubric);
-      setAgentStatus("rubric", "working");
-      await delay(AGENT_DELAY_MS);
-      const rubricRes = await runDebriefStep(trimmed, "rubric", context, { evidence });
-      const rubric = rubricRes.data as RubricOutput;
-      setAgentStatus("rubric", "complete");
-
-      setActiveAgentLabel(AGENT_LABELS.pack);
-      setAgentStatus("pack", "working");
-      await delay(AGENT_DELAY_MS);
-      const packRes = await runDebriefStep(trimmed, "pack", context, { evidence, rubric });
-      const pack = packRes.data as DecisionPackOutput;
-      setAgentStatus("pack", "complete");
-      setActiveAgentLabel("");
-
-      setResult({ evidence, rubric, pack });
+      await runPipeline(trimmedTranscript);
     } catch {
       setError("Something went wrong. Please try again.");
       setAgentStatuses({
@@ -116,21 +145,37 @@ export function DebriefApp() {
   };
 
   const handleStartAgain = () => {
+    setCandidateName("");
     setTranscript("");
+    setRoleTitle(ROLE_OPTIONS[0]);
+    setStage("Final");
     setAgentStatuses(INITIAL_AGENT_STATUSES);
     setActiveAgentLabel("");
     setResult(null);
     setError(null);
     setInputExpanded(true);
+    setIsEditing(false);
     if (isListening) stopListening();
   };
 
   const handleEditDebrief = () => {
     setInputExpanded(true);
+    setIsEditing(true);
     setResult(null);
   };
 
-  const canGenerate = transcript.trim().length > 0 && !isProcessing;
+  const handleTrySample = () => {
+    setCandidateName(SAMPLE_CANDIDATE_NAME);
+    setTranscript(SAMPLE_INPUT);
+    setRoleTitle("Senior Product Manager");
+    setStage("Final");
+  };
+
+  const canGenerate =
+    isValidCandidateName(candidateName) &&
+    transcript.trim().length > 0 &&
+    !isProcessing;
+
   const showFullInput = inputExpanded && !isProcessing;
 
   return (
@@ -145,16 +190,19 @@ export function DebriefApp() {
               <br className="hidden sm:block" /> the next meeting
             </h1>
             <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-stone-500">
-              Speak for 30 seconds. Get a scorecard, rubric check, and decision pack ready to share.
+              Speak or type post-interview notes. Three specialised analysis stages create the
+              decision pack — scorecard, quality flags, and draft messages for panel review.
             </p>
           </div>
         )}
 
         {showFullInput && (
           <VoiceInput
+            candidateName={candidateName}
             transcript={transcript}
             roleTitle={roleTitle}
             stage={stage}
+            onCandidateNameChange={setCandidateName}
             onTranscriptChange={setTranscript}
             onRoleChange={setRoleTitle}
             onStageChange={setStage}
@@ -165,16 +213,20 @@ export function DebriefApp() {
             onStartListening={startListening}
             onStopListening={stopListening}
             onGenerate={handleGenerate}
+            onTrySample={handleTrySample}
             canGenerate={canGenerate}
             disabled={isProcessing}
+            isRegenerate={isEditing}
           />
         )}
 
         {!showFullInput && !isProcessing && result && (
           <VoiceInput
+            candidateName={candidateName}
             transcript={transcript}
             roleTitle={roleTitle}
             stage={stage}
+            onCandidateNameChange={setCandidateName}
             onTranscriptChange={setTranscript}
             onRoleChange={setRoleTitle}
             onStageChange={setStage}
@@ -185,6 +237,7 @@ export function DebriefApp() {
             onStartListening={startListening}
             onStopListening={stopListening}
             onGenerate={handleEditDebrief}
+            onTrySample={handleTrySample}
             canGenerate
             compact
           />
@@ -203,10 +256,11 @@ export function DebriefApp() {
           </div>
         )}
 
-        {result && !isProcessing && (
+        {result && !isProcessing && !inputExpanded && (
           <div className="mt-5">
             <DebriefResults
               result={result}
+              candidateName={normalizeCandidateName(candidateName)}
               roleTitle={roleTitle}
               stage={stage}
               transcript={transcript}

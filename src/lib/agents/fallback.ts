@@ -1,113 +1,44 @@
+import {
+  buildQualityFlags,
+  confidenceFromQuality,
+  hasMetricsWeakness,
+  hasPrioritizationStrength,
+  hasStakeholderGap,
+  scoreCompetency,
+} from "@/lib/competencyScoring";
+import {
+  buildDecisionSummary,
+  deriveAssessmentConfidence,
+  deriveRecommendation,
+} from "@/lib/decisionSummary";
+import { extractVerbatimSnippet } from "@/lib/evidenceFormat";
+import { recommendationForSlack } from "@/lib/recommendations";
+import { DEFAULT_RUBRIC } from "@/lib/constants";
 import type {
-  CompetencyRating,
   DebriefContext,
   DecisionPackOutput,
   EvidenceOutput,
-  EvidenceQuality,
   RubricOutput,
 } from "@/types/debrief";
-import { DEFAULT_RUBRIC } from "@/lib/constants";
-
-function extractName(transcript: string): string {
-  const withMatch = transcript.match(/\b(?:with|finished with|met)\s+([A-Z][a-z]+)\b/);
-  return withMatch?.[1] ?? "Candidate";
-}
-
-function hasMetricsWeakness(transcript: string): boolean {
-  return /weak on metrics|metrics.*vague|success criteria.*vague|analytics/i.test(
-    transcript,
-  );
-}
-
-function hasPrioritizationStrength(transcript: string): boolean {
-  return /prioritization|roadmap|killing.*features|usage data/i.test(transcript);
-}
-
-function hasStakeholderGap(transcript: string): boolean {
-  return /stakeholder|conflict|pushback/i.test(transcript);
-}
-
-function scoreCompetency(
-  competency: string,
-  transcript: string,
-): { score: CompetencyRating; evidenceSummary: string; evidenceQuality: EvidenceQuality } {
-  const lower = competency.toLowerCase();
-
-  if (lower.includes("priorit") || lower.includes("strategy")) {
-    if (hasPrioritizationStrength(transcript)) {
-      return {
-        score: "Strong",
-        evidenceSummary: "Gave a concrete example of deprioritizing features using usage data.",
-        evidenceQuality: "Specific",
-      };
-    }
-    return {
-      score: "Mixed",
-      evidenceSummary: "Some product thinking mentioned but limited detail.",
-      evidenceQuality: "Partial",
-    };
-  }
-
-  if (lower.includes("metric") || lower.includes("analytical")) {
-    if (hasMetricsWeakness(transcript)) {
-      return {
-        score: "Weak",
-        evidenceSummary: "Struggled to articulate success criteria or metrics when probed.",
-        evidenceQuality: "Specific",
-      };
-    }
-    return { score: "Not assessed", evidenceSummary: "Metrics not discussed.", evidenceQuality: "None" };
-  }
-
-  if (lower.includes("communication")) {
-    return {
-      score: "Mixed",
-      evidenceSummary: "Generally clear, though some answers lacked depth.",
-      evidenceQuality: "Partial",
-    };
-  }
-
-  if (lower.includes("stakeholder")) {
-    if (/didn't go deep|not covered|missing/i.test(transcript) && hasStakeholderGap(transcript)) {
-      return {
-        score: "Not assessed",
-        evidenceSummary: "Stakeholder management was not explored in depth.",
-        evidenceQuality: "None",
-      };
-    }
-    if (hasStakeholderGap(transcript)) {
-      return { score: "Mixed", evidenceSummary: "Some stakeholder context mentioned.", evidenceQuality: "Partial" };
-    }
-    return { score: "Not assessed", evidenceSummary: "Not covered in this interview.", evidenceQuality: "None" };
-  }
-
-  if (lower.includes("culture") || lower.includes("collaboration")) {
-    if (/good energy|smart questions|culture fit/i.test(transcript)) {
-      return {
-        score: "Mixed",
-        evidenceSummary: "Positive rapport noted but mostly impression-based.",
-        evidenceQuality: "Vague",
-      };
-    }
-    return { score: "Not assessed", evidenceSummary: "Collaboration not assessed with examples.", evidenceQuality: "None" };
-  }
-
-  return { score: "Not assessed", evidenceSummary: "Not enough evidence in debrief.", evidenceQuality: "None" };
-}
 
 export function runFallbackEvidence(
   transcript: string,
   context: DebriefContext,
 ): EvidenceOutput {
-  const candidateName = extractName(transcript);
+  const candidateName = context.candidateName;
   const keyMoments = [];
 
   if (hasPrioritizationStrength(transcript)) {
+    const quote =
+      extractVerbatimSnippet(
+        transcript,
+        /(killing two features with usage data|killed two features with usage data)/i,
+      ) ?? null;
     keyMoments.push({
       topic: "Roadmap prioritization",
       whatHappened: "Candidate described deprioritizing features using usage data.",
-      candidateQuoteOrParaphrase: "Killed two features with usage data",
-      interviewerObservation: "Strong structured thinking on trade-offs.",
+      candidateQuoteOrParaphrase: quote,
+      interviewerObservation: "Structured thinking on trade-offs observed in the debrief.",
     });
   }
 
@@ -115,7 +46,10 @@ export function runFallbackEvidence(
     keyMoments.push({
       topic: "Metrics & success criteria",
       whatHappened: "Interviewer asked about success criteria; answers stayed high level.",
-      candidateQuoteOrParaphrase: null,
+      candidateQuoteOrParaphrase: extractVerbatimSnippet(
+        transcript,
+        /(success criteria[^.—]*vague[^.—]*|weak on metrics[^.—]*)/i,
+      ),
       interviewerObservation: "Needs deeper analytical rigor on north-star metrics.",
     });
   }
@@ -123,9 +57,12 @@ export function runFallbackEvidence(
   if (/enterprise|smart questions/i.test(transcript)) {
     keyMoments.push({
       topic: "Role curiosity",
-      whatHappened: "Candidate asked thoughtful questions about enterprise motion.",
-      candidateQuoteOrParaphrase: null,
-      interviewerObservation: "Shows genuine interest in the business context.",
+      whatHappened: "Candidate asked thoughtful questions about the business context.",
+      candidateQuoteOrParaphrase: extractVerbatimSnippet(
+        transcript,
+        /(asked smart questions about[^.—]*)/i,
+      ),
+      interviewerObservation: "Shows genuine interest in the role context.",
     });
   }
 
@@ -142,7 +79,7 @@ export function runFallbackEvidence(
   if (hasMetricsWeakness(transcript)) {
     concerns.push("Metrics and success criteria answers lacked specificity");
   }
-  if (/didn't go deep|not covered/i.test(transcript) && hasStakeholderGap(transcript)) {
+  if (/didn't go deep|not covered|not explored/i.test(transcript) && hasStakeholderGap(transcript)) {
     concerns.push("Stakeholder conflict scenarios not explored");
     missing.push("Stakeholder management / conflict resolution");
   }
@@ -153,7 +90,7 @@ export function runFallbackEvidence(
     interviewFormat: `${context.stage} interview debrief`,
     keyMoments,
     demonstratedStrengths: strengths.length ? strengths : ["Relevant experience discussed"],
-    demonstratedConcerns: concerns.length ? concerns : ["No major red flags noted"],
+    demonstratedConcerns: concerns.length ? concerns : ["No major concerns captured in notes"],
     skillsMentioned: ["Product strategy", "Analytics", "Enterprise sales context"].filter((s) =>
       transcript.toLowerCase().includes(s.split(" ")[0]!.toLowerCase()),
     ),
@@ -162,8 +99,10 @@ export function runFallbackEvidence(
       : [],
     missingTopicsNotCovered: missing,
     overallImpressionRaw: /lean yes|advance|strong/i.test(transcript)
-      ? "Generally positive with areas to validate before final decision."
-      : "Mixed impression — more signal needed on key competencies.",
+      ? "Generally positive with areas to validate before a final decision."
+      : /reject|no hire|\bpass\b on this|would pass/i.test(transcript)
+        ? "Insufficient evidence captured to support advancing at this stage."
+        : "Mixed impression — more signal needed on key competencies.",
   };
 }
 
@@ -173,35 +112,24 @@ export function runFallbackRubric(
   context: DebriefContext,
 ): RubricOutput {
   const rubric = context.rubric.length ? context.rubric : DEFAULT_RUBRIC;
-  const competencyScores = rubric.map((competency) => ({
-    competency,
-    ...scoreCompetency(competency, transcript),
-  }));
+  const competencyScores = rubric.map((competency) => {
+    const scored = scoreCompetency(competency, transcript);
+    return {
+      competency,
+      score: scored.score,
+      evidence: scored.evidence,
+      confidence: confidenceFromQuality(scored.evidenceQuality),
+      evidenceQuality: scored.evidenceQuality,
+    };
+  });
 
-  const flags = [];
-  if (/good energy|culture fit|great vibe/i.test(transcript) && !/example|specifically|when/i.test(transcript)) {
-    flags.push({
-      flag: "Positive rapport mentioned without behavioral examples",
-      severity: "Info" as const,
-      suggestion: "Ask for a specific collaboration or conflict example before finalizing.",
-    });
-  }
-  if (hasMetricsWeakness(transcript)) {
-    flags.push({
-      flag: "Metrics competency flagged as weak",
-      severity: "Warning" as const,
-      suggestion: "Schedule a follow-up focused on analytical thinking or review a case study.",
-    });
-  }
-  if (evidence.missingTopicsNotCovered.length > 0) {
-    flags.push({
-      flag: `Topics not covered: ${evidence.missingTopicsNotCovered.join(", ")}`,
-      severity: "Info" as const,
-      suggestion: "Assign another interviewer to probe gaps or add a focused follow-up round.",
-    });
-  }
+  const flags = buildQualityFlags(
+    transcript,
+    evidence.missingTopicsNotCovered,
+    competencyScores,
+  );
 
-  const criticalGaps = evidence.missingTopicsNotCovered.slice();
+  const criticalGaps = [...evidence.missingTopicsNotCovered];
   if (hasMetricsWeakness(transcript)) {
     criticalGaps.push("Analytical depth on product metrics");
   }
@@ -214,17 +142,12 @@ export function runFallbackRubric(
     followUps.push("Behavioral question on navigating executive pushback");
   }
 
-  const weakCount = competencyScores.filter((c) => c.score === "Weak").length;
-  const notAssessed = competencyScores.filter((c) => c.score === "Not assessed").length;
-  const confidence: RubricOutput["confidenceInAssessment"] =
-    weakCount > 0 || notAssessed >= 2 ? "Medium" : "High";
-
   return {
     competencyScores,
     biasAndQualityFlags: flags,
     criticalGaps: [...new Set(criticalGaps)],
     recommendedFollowUpsBeforeDecision: followUps,
-    confidenceInAssessment: confidence,
+    confidenceInAssessment: deriveAssessmentConfidence(competencyScores),
   };
 }
 
@@ -234,7 +157,8 @@ export function runFallbackPack(
   rubric: RubricOutput,
   context: DebriefContext,
 ): DecisionPackOutput {
-  const candidate = evidence.candidateName ?? "Candidate";
+  const candidate = evidence.candidateName;
+  const recommendation = deriveRecommendation(transcript, rubric);
   const hasWeakMetrics = rubric.competencyScores.some(
     (c) => c.competency.toLowerCase().includes("metric") && c.score === "Weak",
   );
@@ -242,13 +166,6 @@ export function runFallbackPack(
     (c) =>
       c.competency.toLowerCase().includes("priorit") && c.score === "Strong",
   );
-
-  const recommendation: DecisionPackOutput["recommendation"] =
-    /reject|no hire|pass/i.test(transcript)
-      ? "Reject"
-      : hasWeakMetrics || rubric.recommendedFollowUpsBeforeDecision.length > 0
-        ? "Hold"
-        : "Advance";
 
   const topStrengths = evidence.demonstratedStrengths.slice(0, 3);
   const topRisks = [
@@ -259,55 +176,189 @@ export function runFallbackPack(
   const competencyTable = rubric.competencyScores.map((c) => ({
     competency: c.competency,
     score: c.score,
-    note: c.evidenceSummary,
+    evidence: c.evidence,
+    confidence: c.confidence,
   }));
 
-  return {
-    recommendation,
-    recommendationRationale:
-      recommendation === "Hold"
-        ? `${candidate} shows promise on product judgment but metrics depth needs validation before a final decision.`
-        : recommendation === "Advance"
-          ? `${candidate} demonstrated strong signal across key competencies for ${context.roleTitle}.`
-          : `Insufficient evidence to advance ${candidate} at this stage.`,
-    scorecardSummary: {
-      headline: `${candidate} — ${context.roleTitle} (${context.stage})`,
-      topStrengths,
-      topRisks,
-      competencyTable,
+  const draftResult = {
+    evidence,
+    rubric,
+    pack: {
+      recommendation,
+      recommendationRationale: buildRationale(recommendation, candidate, context.roleTitle),
+      decisionSummary: {
+        strongestSignal: "",
+        mainConcern: "",
+        notAssessed: "",
+        suggestedNextStep: "",
+      },
+      scorecardSummary: {
+        headline: `${candidate} — ${context.roleTitle} (${context.stage})`,
+        topStrengths,
+        topRisks,
+        competencyTable,
+      },
+      panelDebriefNotes: buildPanelNotes(
+        candidate,
+        context,
+        recommendation,
+        topStrengths,
+        topRisks,
+        rubric,
+      ),
+      slackMessageDraft: buildSlackDraft(
+        candidate,
+        context,
+        recommendation,
+        hasStrongPrioritization,
+        hasWeakMetrics,
+        rubric,
+      ),
+      candidateFollowUpDraft: buildCandidateFollowUp(
+        candidate,
+        context,
+        recommendation,
+        hasWeakMetrics,
+        rubric,
+      ),
+      nextStepChecklist: buildChecklist(recommendation, hasWeakMetrics),
     },
-    panelDebriefNotes: [
-      `${candidate} — ${context.stage} debrief for ${context.roleTitle}`,
-      "",
-      "Strengths",
-      ...topStrengths.map((s) => `- ${s}`),
-      "",
-      "Risks / gaps",
-      ...topRisks.map((r) => `- ${r}`),
-      "",
-      `- **Recommendation (draft):** ${recommendation}`,
-      ...(rubric.recommendedFollowUpsBeforeDecision.length
-        ? [
-            "",
-            "Suggested follow-ups",
-            ...rubric.recommendedFollowUpsBeforeDecision.map((f) => `- ${f}`),
-          ]
-        : []),
-    ].join("\n"),
-    slackMessageDraft: `Debrief on ${candidate} (${context.roleTitle}, ${context.stage}): ${recommendation} — ${hasStrongPrioritization ? "strong prioritization story" : "mixed signal"}${hasWeakMetrics ? ", but metrics need a follow-up" : ""}. ${rubric.recommendedFollowUpsBeforeDecision[0] ?? "Ready for panel discussion."}`,
-    candidateFollowUpDraft:
-      recommendation !== "Reject" && hasWeakMetrics
-        ? `Hi ${candidate},\n\nThank you again for speaking with us about the ${context.roleTitle} role. We'd like to schedule a short follow-up conversation focused on how you define and track product success metrics. Looking forward to continuing the discussion.\n\nBest,\nHiring Team`
-        : null,
-    nextStepChecklist: [
-      "Share scorecard with interview panel",
-      recommendation === "Hold"
-        ? "Schedule metrics follow-up or assign case study"
-        : "Collect remaining panel feedback",
-      "Confirm decision in hiring committee",
-      ...(recommendation !== "Reject" && hasWeakMetrics
-        ? ["Send candidate follow-up to schedule analytics conversation"]
-        : []),
-    ],
   };
+
+  draftResult.pack.decisionSummary = buildDecisionSummary(draftResult);
+
+  return draftResult.pack;
+}
+
+function buildRationale(
+  recommendation: DecisionPackOutput["recommendation"],
+  candidate: string,
+  roleTitle: string,
+): string {
+  switch (recommendation) {
+    case "Focused follow-up required":
+      return `${candidate} shows useful signal for ${roleTitle}, but one or more competencies need a focused follow-up before the panel decides on next steps.`;
+    case "Proceed to next stage":
+      return `${candidate} demonstrated sufficient evidence across key competencies for ${roleTitle} to proceed, pending human review.`;
+    case "Panel review required":
+      return `Coverage gaps remain for ${candidate}. The panel should review missing competencies before deciding on next steps.`;
+    case "Insufficient evidence":
+      return `The debrief does not contain enough structured evidence to support a next step for ${candidate} at this stage.`;
+  }
+}
+
+function buildPanelNotes(
+  candidate: string,
+  context: DebriefContext,
+  recommendation: DecisionPackOutput["recommendation"],
+  topStrengths: string[],
+  topRisks: string[],
+  rubric: RubricOutput,
+): string {
+  return [
+    `${candidate} — ${context.stage} debrief for ${context.roleTitle}`,
+    "",
+    "**Observed evidence**",
+    ...topStrengths.map((s) => `- ${s}`),
+    "",
+    "**Risks / gaps**",
+    ...topRisks.map((r) => `- ${r}`),
+    "",
+    "**Missing evidence**",
+    ...(rubric.criticalGaps.length
+      ? rubric.criticalGaps.map((g) => `- ${g}`)
+      : ["- None noted"]),
+    "",
+    `- **Draft next step:** ${recommendation}`,
+    ...(rubric.recommendedFollowUpsBeforeDecision.length
+      ? [
+          "",
+          "**Suggested follow-ups**",
+          ...rubric.recommendedFollowUpsBeforeDecision.map((f) => `- ${f}`),
+        ]
+      : []),
+  ].join("\n");
+}
+
+function buildSlackDraft(
+  candidate: string,
+  context: DebriefContext,
+  recommendation: DecisionPackOutput["recommendation"],
+  hasStrongPrioritization: boolean,
+  hasWeakMetrics: boolean,
+  rubric: RubricOutput,
+): string {
+  const label = recommendationForSlack(recommendation);
+  const signal = hasStrongPrioritization ? "strong prioritization story" : "mixed signal";
+  const metricsNote = hasWeakMetrics ? ", metrics need a follow-up" : "";
+  const followUp =
+    rubric.recommendedFollowUpsBeforeDecision[0] ?? "Ready for panel discussion.";
+  return `Debrief on ${candidate} (${context.roleTitle}, ${context.stage}): ${label} — ${signal}${metricsNote}. ${followUp}`;
+}
+
+function buildCandidateFollowUp(
+  candidate: string,
+  context: DebriefContext,
+  recommendation: DecisionPackOutput["recommendation"],
+  hasWeakMetrics: boolean,
+  rubric: RubricOutput,
+): string | null {
+  if (recommendation === "Insufficient evidence") {
+    return null;
+  }
+
+  if (hasWeakMetrics || recommendation === "Focused follow-up required") {
+    return `Hi ${candidate},
+
+Thank you again for speaking with us about the ${context.roleTitle} role. We'd like to schedule a short follow-up conversation focused on how you define and track product success metrics.
+
+Looking forward to continuing the discussion.
+
+Best,
+Hiring Team`;
+  }
+
+  if (recommendation === "Proceed to next stage") {
+    return `Hi ${candidate},
+
+Thank you again for your time discussing the ${context.roleTitle} role. We'd like to invite you to the next stage of our process and will follow up shortly with scheduling details.
+
+Best,
+Hiring Team`;
+  }
+
+  if (rubric.recommendedFollowUpsBeforeDecision.length > 0) {
+    return `Hi ${candidate},
+
+Thank you again for speaking with us about the ${context.roleTitle} role. We'd like to schedule a brief follow-up conversation to explore a few areas we did not cover in depth.
+
+Best,
+Hiring Team`;
+  }
+
+  return null;
+}
+
+function buildChecklist(
+  recommendation: DecisionPackOutput["recommendation"],
+  hasWeakMetrics: boolean,
+): string[] {
+  const items = ["Share scorecard with interview panel"];
+
+  if (recommendation === "Focused follow-up required") {
+    items.push("Schedule focused follow-up or assign case study");
+  } else if (recommendation === "Panel review required") {
+    items.push("Collect remaining panel feedback on uncovered competencies");
+  } else if (recommendation === "Insufficient evidence") {
+    items.push("Determine whether additional interview evidence is needed");
+  } else {
+    items.push("Confirm next-stage logistics with recruiting");
+  }
+
+  items.push("Confirm next step in hiring committee");
+  if (hasWeakMetrics && recommendation !== "Insufficient evidence") {
+    items.push("Review and approve candidate follow-up before sending");
+  }
+
+  return items;
 }

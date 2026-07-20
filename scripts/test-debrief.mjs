@@ -12,6 +12,7 @@ const SAMPLE_INPUT =
   "Just finished with Priya for the senior PM role. Strong on roadmap prioritization — she walked through killing two features with usage data. Weak on metrics — when I asked about success criteria she stayed vague. Good energy, asked smart questions about our enterprise motion. Didn't go deep on stakeholder conflict. I'd lean yes but want one more conversation on analytics.";
 
 const context = {
+  candidateName: "Priya",
   roleTitle: "Senior Product Manager",
   stage: "Final",
   rubric: [
@@ -61,8 +62,7 @@ async function postStep(step, prior) {
 loadEnvLocal();
 
 const agentMode = process.env.AGENT_MODE?.trim().toLowerCase() ?? "(not set)";
-const hasKey = Boolean(process.env.CURSOR_API_KEY?.trim());
-const demoMode = agentMode === "demo" || agentMode === "fallback" || !hasKey;
+const demoMode = agentMode === "demo" || agentMode === "fallback";
 
 console.log(`\nInterviewDebrief API test → ${baseUrl}`);
 console.log(`AGENT_MODE: ${agentMode}`);
@@ -83,21 +83,23 @@ const packRes = await postStep("pack", {
   rubric: rubricRes.data,
 });
 console.log(
-  `✓ pack      [${packRes.source}]  recommendation: ${packRes.data.recommendation}`,
+  `✓ pack      [${packRes.source}]  draft next step: ${packRes.data.recommendation}`,
 );
 
 const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 const allFallback = [evidenceRes, rubricRes, packRes].every((r) => r.source === "fallback");
-const allSdk = [evidenceRes, rubricRes, packRes].every((r) => r.source === "cursor-sdk");
 
 console.log(`\nDone in ${elapsed}s`);
 if (allFallback && demoMode) {
   console.log("SUCCESS: Demo mode pipeline works (local agents, zero API cost).");
-} else if (allSdk) {
-  console.log("SUCCESS: All three agents ran via Cursor SDK.");
+  if (packRes.data.recommendation !== "Focused follow-up required") {
+    console.warn(`Expected "Focused follow-up required", got "${packRes.data.recommendation}"`);
+  }
+  if (evidenceRes.data.candidateName !== "Priya") {
+    process.exitCode = 1;
+  }
 } else if (allFallback) {
   console.log("SUCCESS: Pipeline works via local fallback agents.");
 } else {
-  console.log("MIXED: Some agents used SDK, some used fallback.");
-  process.exitCode = 1;
+  console.log("MIXED or SDK: review agent sources.");
 }

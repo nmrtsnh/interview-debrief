@@ -1,7 +1,7 @@
 export function Header() {
   return (
     <header className="border-b border-stone-200/80 bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-2xl items-center px-4 py-5 sm:px-6">
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-5 sm:px-6">
         <div className="flex items-center gap-2.5">
           <span
             className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent"
@@ -26,6 +26,9 @@ export function Header() {
             InterviewDebrief
           </span>
         </div>
+        <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-stone-500 ring-1 ring-stone-200/80">
+          Built with Cursor
+        </span>
       </div>
     </header>
   );

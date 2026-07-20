@@ -10,7 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "InterviewDebrief — Finish the debrief before the next meeting",
   description:
-    "Turn messy post-interview voice notes into a scorecard, rubric analysis, and hiring decision pack using a three-agent workflow.",
+    "Three specialised analysis stages turn post-interview voice notes into an evidence-backed scorecard, quality flags, and draft messages. Built with Cursor.",
 };
 
 export default function RootLayout({

@@ -40,11 +40,21 @@ export async function POST(request: Request) {
     return Response.json({ error: "context with roleTitle and stage is required" }, { status: 400 });
   }
 
+  const candidateName = body.context.candidateName?.trim();
+  if (!candidateName) {
+    return Response.json({ error: "context.candidateName is required" }, { status: 400 });
+  }
+
+  const context = {
+    ...body.context,
+    candidateName,
+  };
+
   try {
     const result = await runAgentStep(
       body.step,
       transcript,
-      body.context,
+      context,
       body.prior,
     );
     return Response.json({

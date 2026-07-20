@@ -10,11 +10,16 @@ export type EvidenceQuality = "Specific" | "Partial" | "Vague" | "None";
 
 export type FlagSeverity = "Info" | "Warning";
 
-export type Recommendation = "Advance" | "Hold" | "Reject";
+export type Recommendation =
+  | "Proceed to next stage"
+  | "Focused follow-up required"
+  | "Panel review required"
+  | "Insufficient evidence";
 
 export type ConfidenceLevel = "High" | "Medium" | "Low";
 
 export interface DebriefContext {
+  candidateName: string;
   roleTitle: string;
   stage: InterviewStage;
   rubric: string[];
@@ -28,7 +33,7 @@ export interface KeyMoment {
 }
 
 export interface EvidenceOutput {
-  candidateName: string | null;
+  candidateName: string;
   roleDiscussed: string | null;
   interviewFormat: string;
   keyMoments: KeyMoment[];
@@ -43,38 +48,51 @@ export interface EvidenceOutput {
 export interface CompetencyScoreEntry {
   competency: string;
   score: CompetencyRating;
-  evidenceSummary: string;
+  evidence: string;
+  confidence: ConfidenceLevel;
   evidenceQuality: EvidenceQuality;
 }
 
-export interface BiasFlag {
-  flag: string;
+export interface QualityFlag {
+  issue: string;
+  whyItMatters: string;
+  recommendedCorrection: string;
   severity: FlagSeverity;
-  suggestion: string;
 }
 
 export interface RubricOutput {
   competencyScores: CompetencyScoreEntry[];
-  biasAndQualityFlags: BiasFlag[];
+  biasAndQualityFlags: QualityFlag[];
   criticalGaps: string[];
   recommendedFollowUpsBeforeDecision: string[];
   confidenceInAssessment: ConfidenceLevel;
+}
+
+export interface CompetencyTableRow {
+  competency: string;
+  score: CompetencyRating;
+  evidence: string;
+  confidence: ConfidenceLevel;
+}
+
+export interface DecisionSummary {
+  strongestSignal: string;
+  mainConcern: string;
+  notAssessed: string;
+  suggestedNextStep: string;
 }
 
 export interface ScorecardSummary {
   headline: string;
   topStrengths: string[];
   topRisks: string[];
-  competencyTable: Array<{
-    competency: string;
-    score: string;
-    note: string;
-  }>;
+  competencyTable: CompetencyTableRow[];
 }
 
 export interface DecisionPackOutput {
   recommendation: Recommendation;
   recommendationRationale: string;
+  decisionSummary: DecisionSummary;
   scorecardSummary: ScorecardSummary;
   panelDebriefNotes: string;
   slackMessageDraft: string;
